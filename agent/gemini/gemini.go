@@ -54,7 +54,10 @@ func New(opts map[string]any) (core.Agent, error) {
 		cmd = "gemini"
 	}
 
-	timeoutMins, _ := opts["timeout_mins"].(int64)
+	timeoutMins, ok := opts["timeout_mins"].(int64)
+	if v, ok2 := opts["timeout_mins"]; ok && !ok2 {
+		slog.Debug("gemini: timeout_mins should be int64, got %T", v)
+	}
 	var timeout time.Duration
 	if timeoutMins > 0 {
 		timeout = time.Duration(timeoutMins) * time.Minute
