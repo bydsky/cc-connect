@@ -125,7 +125,13 @@ func (gs *geminiSession) Send(prompt string, images []core.ImageAttachment) (err
 	slog.Debug("geminiSession: launching", "resume", isResume, "args", core.RedactArgs(args))
 
 	// Add timeout for each turn to prevent hanging processes
-	ctx, cancel := context.WithTimeout(gs.ctx, gs.timeout)
+	var ctx context.Context
+	var cancel context.CancelFunc
+	if gs.timeout > 0 {
+		ctx, cancel = context.WithTimeout(gs.ctx, gs.timeout)
+	} else {
+		ctx, cancel = context.WithCancel(gs.ctx)
+	}
 
 	// ensure cancel is called on early return errors
 	started := false

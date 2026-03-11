@@ -55,7 +55,7 @@ func New(opts map[string]any) (core.Agent, error) {
 	}
 
 	timeoutMins, _ := opts["timeout_mins"].(int64)
-	timeout := 30 * time.Minute
+	var timeout time.Duration
 	if timeoutMins > 0 {
 		timeout = time.Duration(timeoutMins) * time.Minute
 	}
