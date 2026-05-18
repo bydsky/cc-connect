@@ -620,24 +620,7 @@ func (p *Platform) Start(handler core.MessageHandler) error {
 
 		// Prepend the replied-to message's content and images so the agent has context.
 		if m.ReferencedMessage != nil {
-			ref := m.ReferencedMessage
-			author := ""
-			if ref.Author != nil {
-				author = ref.Author.Username
-			}
-			m.Content = "[replying to " + author + ": " + ref.Content + "]\n" + m.Content
-			for _, att := range ref.Attachments {
-				if att.Width > 0 && att.Height > 0 {
-					data, err := downloadURL(att.URL)
-					if err != nil {
-						slog.Error("discord: download referenced attachment failed", "url", att.URL, "error", err)
-						continue
-					}
-					images = append([]core.ImageAttachment{{
-						MimeType: att.ContentType, Data: data, FileName: att.Filename,
-					}}, images...)
-				}
-			}
+			m.Content, images = applyReferencedMessage(m.ReferencedMessage, m.Content, images, downloadURL)
 		}
 
 		msg := &core.Message{
@@ -1382,4 +1365,29 @@ func downloadURL(u string) ([]byte, error) {
 		return nil, fmt.Errorf("download %s: status %d", u, resp.StatusCode)
 	}
 	return io.ReadAll(io.LimitReader(resp.Body, maxDownloadBytes+1))
+}
+
+// applyReferencedMessage prepends the replied-to message's author and content
+// to content and prepends any images from the referenced message's attachments.
+// Image attachments (width > 0) are downloaded via download and prepended so the
+// agent sees them before the current message's own images.
+func applyReferencedMessage(ref *discordgo.Message, content string, images []core.ImageAttachment, download func(string) ([]byte, error)) (string, []core.ImageAttachment) {
+	author := ""
+	if ref.Author != nil {
+		author = ref.Author.Username
+	}
+	content = "[replying to " + author + ": " + ref.Content + "]\n" + content
+	for _, att := range ref.Attachments {
+		if att.Width > 0 && att.Height > 0 {
+			data, err := download(att.URL)
+			if err != nil {
+				slog.Error("discord: download referenced attachment failed", "url", att.URL, "error", err)
+				continue
+			}
+			images = append([]core.ImageAttachment{{
+				MimeType: att.ContentType, Data: data, FileName: att.Filename,
+			}}, images...)
+		}
+	}
+	return content, images
 }
